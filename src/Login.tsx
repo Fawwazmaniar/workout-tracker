@@ -1,4 +1,4 @@
-import { useState, type FormEventHandler } from "react";
+import { useState, type FormEventHandler, type MouseEvent } from "react";
 import { supabase } from "./lib/supabaseClient";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +31,7 @@ export const Login = () => {
         }
     }
 
-    const handleReset = async (e) => {
+    const handleReset = async (e: MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         setLoading(true);
 

@@ -21,7 +21,7 @@ export const Exercises = () => {
 
     const queryClient = useQueryClient();
 
-    const [selectedExercise, setSelectedExercise] = useState(null);
+    const [selectedExercise, setSelectedExercise] = useState<NonNullable<typeof data>[number] | null>(null);
 
     const handleAddExercise = () => setIsModalOpen(true)
 

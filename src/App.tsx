@@ -36,7 +36,7 @@ function App() {
 
   const navigate = useNavigate();
 
-  const getRole = useCallback(async (id: string) => {
+  const getRole = useCallback(async (id?: string) => {
     if (!id) {
       setRole(null);
       return;

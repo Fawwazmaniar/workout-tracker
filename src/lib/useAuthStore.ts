@@ -12,7 +12,7 @@ interface AuthStore{
     isPasswordRecovery: boolean;
     setIsPasswordRecovery: (loading: boolean) => void;
     role: string | null;
-    setRole: (role: string) => void;
+    setRole: (role: string | null) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({

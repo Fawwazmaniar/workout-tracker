@@ -24,7 +24,7 @@ export const Splits = () => {
 
     const queryClient = useQueryClient();
 
-    const [selectedSplit, setSelectedSplit] = useState(null);
+    const [selectedSplit, setSelectedSplit] = useState<NonNullable<typeof data>[number] | null>(null);
 
     const handleAddSplit = () => {
         setSelectedSplit(null);
@@ -76,24 +76,22 @@ export const Splits = () => {
         return <div className="splits-state splits-state-error">Error: {error.message}</div>;
     }
 
-    if (!data?.length) {
-        return <div className="splits-state">No splits found.</div>;
-    }
+    const splits = data ?? [];
 
     return (
         <div className="splits-page">
             <div className="splits-header">
                 <h1>Splits</h1>
-                <p>{data.length} splits</p>
+                <p>{splits.length} splits</p>
             </div>
 
             {mutationError && <p className="error-text">{mutationError}</p>}
 
-            {!data?.length ? (
+            {!splits.length ? (
                 <div className="splits-state">No splits found.</div>
             ) : (
                 <div className="splits-list">
-                    {data.map((split) => (
+                    {splits.map((split) => (
                         <section className="split-card" key={split.id}>
                             <div className="split-card-head">
                                 <h2>{split.name}</h2>
