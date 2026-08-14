@@ -27,7 +27,7 @@ export const DayExerciseFormModal = ({
 }: DayExerciseFormModalProps) => {
 
     const [order, setOrder] = useState(0);
-    const [exerciseId, setExerciseId] = useState("");
+    const [exerciseId, setExerciseId] = useState('');
     const [error, setError] = useState("");
 
     const { data, isPending, isError } = useQuery({
@@ -99,7 +99,7 @@ export const DayExerciseFormModal = ({
     };
 
     const handleClose = () => {
-        setExerciseId("");
+        setExerciseId('');
         onClose();
     };
 

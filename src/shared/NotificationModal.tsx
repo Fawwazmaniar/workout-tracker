@@ -7,6 +7,8 @@ interface NotificationModalProps {
     onClose: () => void;
     action: string;
     onConfirm?: () => void;
+    message?: string;
+    confirmLabel?: string;
 }
 
 export const NotificationModal = ({
@@ -15,8 +17,11 @@ export const NotificationModal = ({
     onClose,
     action,
     onConfirm,
+    message,
+    confirmLabel,
 }: NotificationModalProps) => {
     const isDeleteAction = action.toLowerCase() === "delete";
+    const description = message ?? `Are you sure you want to ${action.toLowerCase()} this item?${isDeleteAction ? " This cannot be undone." : ""}`;
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -36,10 +41,7 @@ export const NotificationModal = ({
 
                     <div className="notification-message">
                         <LuTriangleAlert className="notification-icon" aria-hidden="true" />
-                        <p>
-                            Are you sure you want to {action.toLowerCase()} this item?
-                            {isDeleteAction && " This cannot be undone."}
-                        </p>
+                        <p>{description}</p>
                     </div>
 
                     <div className="notification-actions">
@@ -54,7 +56,7 @@ export const NotificationModal = ({
                             className={isDeleteAction ? "notification-confirm-btn danger" : "notification-confirm-btn"}
                             onClick={onConfirm}
                         >
-                            {action}
+                            {confirmLabel ?? action}
                         </button>
                     </div>
                 </Dialog.Content>

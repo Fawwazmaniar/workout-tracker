@@ -1730,6 +1730,15 @@
     background: var(--bg-page);
 }
 
+.login-page {
+    padding: 0 16px !important;
+    align-content: center;
+}
+
+.login-page .login-card {
+    transform: translateY(-28px);
+}
+
 .auth-card,
 .signup-card,
 .login-card {
@@ -3037,6 +3046,21 @@
     box-sizing: border-box;
 }
 
+/* Keep add FABs always visible on Exercises + Splits pages */
+.exercises-fab-wrap,
+.splits-fab-wrap {
+    height: 0;
+    margin: 0;
+}
+
+.exercises-fab-wrap .fab-add,
+.splits-fab-wrap .split-fab-add {
+    position: fixed !important;
+    right: 18px !important;
+    bottom: calc(94px + env(safe-area-inset-bottom)) !important;
+    z-index: 70;
+}
+
 .dashboard-head-actions {
     display: inline-flex;
     align-items: center;
@@ -3078,6 +3102,12 @@
     margin-left: auto;
 }
 
+.dashboard-session-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .dashboard-open-details-btn {
     display: inline-flex;
     align-items: center;
@@ -3092,6 +3122,38 @@
     line-height: 1;
     cursor: pointer;
     transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-edit-workout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(89, 127, 108, 0.52);
+    background: rgba(89, 127, 108, 0.16);
+    color: #b7d6bf;
+    border-radius: 8px;
+    padding: 6px 9px;
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1;
+    text-decoration: none;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-edit-workout-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.dashboard-edit-workout-btn:hover {
+    border-color: rgba(89, 127, 108, 0.75);
+    background: rgba(89, 127, 108, 0.26);
+    color: #d8f0de;
+}
+
+.dashboard-edit-workout-btn:focus-visible {
+    outline: 2px solid rgba(89, 127, 108, 0.52);
+    outline-offset: 2px;
 }
 
 .dashboard-open-details-btn svg {
@@ -3110,6 +3172,43 @@
     outline-offset: 2px;
 }
 
+.dashboard-delete-workout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(194, 92, 92, 0.45);
+    background: rgba(194, 92, 92, 0.12);
+    color: #f3b4b4;
+    border-radius: 8px;
+    padding: 6px 9px;
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-delete-workout-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.dashboard-delete-workout-btn:hover {
+    border-color: rgba(194, 92, 92, 0.72);
+    background: rgba(194, 92, 92, 0.2);
+    color: #ffd9d9;
+}
+
+.dashboard-delete-workout-btn:focus-visible {
+    outline: 2px solid rgba(194, 92, 92, 0.48);
+    outline-offset: 2px;
+}
+
+.dashboard-delete-workout-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 @media (max-width: 760px) {
     .dashboard-head-actions {
         width: 100%;
@@ -3120,6 +3219,11 @@
         align-items: flex-end;
         flex-direction: column;
         gap: 6px;
+    }
+
+    .dashboard-session-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 }
 
@@ -3232,6 +3336,70 @@
     color: var(--text-primary);
     font-size: 1rem;
     text-align: left;
+}
+
+/* ===== Branding assets ===== */
+
+.brand-logo {
+    height: 34px;
+    width: auto;
+    max-width: 190px;
+    object-fit: contain;
+    display: block;
+    border-radius: 6px;
+}
+
+.plateau-text-mark {
+    height: 30px;
+    width: auto;
+    max-width: min(100%, 220px);
+    object-fit: contain;
+    display: block;
+    margin-bottom: 8px;
+    border-radius: 5px;
+}
+
+@media (max-width: 700px) {
+    .brand-logo {
+        height: 30px;
+    }
+
+    .plateau-text-mark {
+        height: 26px;
+    }
+}
+
+/* Branding size boost */
+.topbar .brand-logo {
+    height: 52px !important;
+    max-width: 280px !important;
+}
+
+.auth-card .plateau-text-mark,
+.login-card .plateau-text-mark {
+    height: 54px !important;
+    max-width: min(100%, 360px) !important;
+    margin-bottom: 12px;
+}
+
+.auth-card .plateau-text-mark.plateau-text-mark-full,
+.login-card .plateau-text-mark.plateau-text-mark-full {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+}
+
+@media (max-width: 700px) {
+    .topbar .brand-logo {
+        height: 42px !important;
+        max-width: 230px !important;
+    }
+
+    .auth-card .plateau-text-mark,
+    .login-card .plateau-text-mark {
+        height: 44px !important;
+        max-width: min(100%, 300px) !important;
+    }
 }
 
 .workout-detail-note {

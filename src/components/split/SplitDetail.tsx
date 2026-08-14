@@ -7,11 +7,17 @@ import { useState } from "react";
 import { DayExerciseFormModal } from "./DayExerciseFormModal";
 import { DayFormModal } from "./DayFormModal";
 
-type EditableExercise = {
+type EditableTemplateExercise = {
     id: string;
     exerciseId: string;
     name: string;
     exercise_order: number;
+};
+
+type EditableTemplate = {
+    id: string;
+    name: string;
+    day_order: number;
 };
 
 export const SplitDetail = () => {
@@ -36,10 +42,10 @@ export const SplitDetail = () => {
     const [title, setTitle] = useState('');
 
     const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-    const [selectedExercise, setSelectedExercise] = useState<EditableExercise | null>(null);
+    const [selectedExercise, setSelectedExercise] = useState<EditableTemplateExercise | null>(null);
     const [selectedTemplateId, setSelectedTemplateId] = useState('');
     const [isDayModalOpen, setIsDayModalOpen] = useState(false);
-    const [selectedTemplate, setSelectedTemplate] = useState<NonNullable<typeof templates>[number] | null>(null);
+    const [selectedTemplate, setSelectedTemplate] = useState<EditableTemplate | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -64,7 +70,7 @@ export const SplitDetail = () => {
         }
     };
 
-    const handleOnAddEditExercise = (templateId: string, exercise: EditableExercise | null = null) => {
+    const handleOnAddEditExercise = (templateId: string, exercise: EditableTemplateExercise | null = null) => {
         setSelectedTemplateId(templateId);
         setSelectedExercise(exercise);
         setIsExerciseModalOpen(true);
@@ -75,7 +81,7 @@ export const SplitDetail = () => {
         setIsDayModalOpen(true);
     };
 
-    const handleEditDay = (template: NonNullable<typeof templates>[number]) => {
+    const handleEditDay = (template: EditableTemplate) => {
         setSelectedTemplate(template);
         setIsDayModalOpen(true);
     };

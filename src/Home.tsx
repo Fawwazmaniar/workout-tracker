@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
 import { LuDumbbell, LuLayers, LuHistory, LuClipboardList } from 'react-icons/lu';
+import plateauText from './assets/plateau-text.png';
 
 export const Home = () => {
     return (
         <section className="surface-page auth-page">
             <article className="auth-card">
-                <p className="login-tag">Workout tracker</p>
+                <img src={plateauText} alt="Plateau" className="plateau-text-mark plateau-text-mark-full" />
                 <h1>Train with intent</h1>
                 <p className="section-subtitle" style={{ marginBottom: '16px' }}>
                     Built for serious logging: sessions, progression, and discipline in one place.

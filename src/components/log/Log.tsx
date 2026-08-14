@@ -2,9 +2,9 @@ import { LuDumbbell, LuPlus } from 'react-icons/lu';
 import { useAuthStore } from '../../lib/useAuthStore';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { fetchTemplatesWithExercises } from '../../lib/splits';
-import { useState } from 'react';
-import { createSet, createWorkout, fetchActiveSplit, upsertExerciseNote } from '../../lib/logs';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { createSet, createWorkout, fetchActiveSplit, fetchWorkoutForEdit, saveWorkoutEdits, upsertExerciseNote } from '../../lib/logs';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface SetEntry {
   weight: string;
@@ -15,33 +15,65 @@ interface SetEntry {
 export const Log = () => {
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
+  const editWorkoutId = searchParams.get('editWorkoutId')?.trim() || null;
+  const isEditMode = !!editWorkoutId;
+
   const { data: activeSplit, isPending: splitPending } = useQuery({
     queryKey: ["activeSplit", user?.id],
     queryFn: () => fetchActiveSplit(user!.id),
     enabled: !!user?.id,
   });
-  
+
   const { data: templates, isPending: templatesPending } = useQuery({
     queryKey: ["templates", activeSplit?.id],
     queryFn: () => fetchTemplatesWithExercises(activeSplit!.id),
     enabled: !!activeSplit?.id,
   });
 
-  const [workoutId, setWorkoutId] = useState<string | null>(null);
-
-  const createWorkoutMutation = useMutation({
-    mutationFn: (templateId: string) => createWorkout(user!.id, templateId),
-    onSuccess: (workout) => {
-      setWorkoutId(workout.id);
-    },
+  const { data: workoutToEdit, isPending: editPending } = useQuery({
+    queryKey: ['workoutToEdit', editWorkoutId],
+    queryFn: () => fetchWorkoutForEdit(editWorkoutId!),
+    enabled: !!editWorkoutId,
   });
 
   const [setsByExercise, setSetsByExercise] = useState<Record<string, SetEntry[]>>({});
+  const [notesByExercise, setNotesByExercise] = useState<Record<string, string>>({});
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [prefilledWorkoutId, setPrefilledWorkoutId] = useState<string | null>(null);
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  useEffect(() => {
+    if (!workoutToEdit?.id) return;
+    if (prefilledWorkoutId === workoutToEdit.id) return;
 
-  const selectedTemplate = templates?.find((t) => t.id === selectedTemplateId);
+    const prefilledSets = (workoutToEdit.sets ?? []).reduce<Record<string, SetEntry[]>>((acc, item) => {
+      const exerciseId = item.exercise_id;
+      if (!acc[exerciseId]) {
+        acc[exerciseId] = [];
+      }
+
+      acc[exerciseId].push({
+        weight: String(item.weight ?? ''),
+        reps: String(item.reps ?? ''),
+        isWarmup: !!item.is_warmup,
+      });
+
+      return acc;
+    }, {});
+
+    const prefilledNotes = (workoutToEdit.notes ?? []).reduce<Record<string, string>>((acc, item) => {
+      acc[item.exercise_id] = item.note ?? '';
+      return acc;
+    }, {});
+
+    queueMicrotask(() => {
+      setSelectedTemplateId(workoutToEdit.template_id ?? '');
+      setSetsByExercise(prefilledSets);
+      setNotesByExercise(prefilledNotes);
+      setPrefilledWorkoutId(workoutToEdit.id);
+    });
+  }, [workoutToEdit, prefilledWorkoutId]);
 
   const handleSetChange = (exerciseId: string, index: number, field: keyof SetEntry, value: string | boolean) => {
     setSetsByExercise((prev) => {
@@ -58,19 +90,25 @@ export const Log = () => {
     }));
   };
 
+  const selectedTemplate = templates?.find((t) => t.id === selectedTemplateId);
 
   const finishWorkoutMutation = useMutation({
-    
     mutationFn: async () => {
+      if (isEditMode && editWorkoutId) {
+        return saveWorkoutEdits(editWorkoutId, selectedTemplateId, setsByExercise, notesByExercise);
+      }
+
+      const workout = await createWorkout(user!.id, selectedTemplateId);
+
       const allSetInserts = Object.entries(setsByExercise).flatMap(([exerciseId, sets]) =>
         sets.map((set, index) =>
-          createSet(workoutId!, exerciseId, index + 1, parseFloat(set.weight), parseInt(set.reps), set.isWarmup)
+          createSet(workout.id, exerciseId, index + 1, parseFloat(set.weight), parseInt(set.reps), set.isWarmup)
         )
       );
 
       const allNoteInserts = Object.entries(notesByExercise)
         .filter(([, note]) => note.trim().length > 0)
-        .map(([exerciseId, note]) => upsertExerciseNote(workoutId!, exerciseId, note.trim()));
+        .map(([exerciseId, note]) => upsertExerciseNote(workout.id, exerciseId, note.trim()));
 
       return Promise.all([...allSetInserts, ...allNoteInserts]);
     },
@@ -78,7 +116,7 @@ export const Log = () => {
       setSetsByExercise({});
       setNotesByExercise({});
       setSelectedTemplateId("");
-      setWorkoutId(null);
+      setPrefilledWorkoutId(null);
       navigate("/dashboard");
     },
     onError: (error: Error) => {
@@ -93,18 +131,23 @@ export const Log = () => {
   const totalSets = Object.values(setsByExercise).flat().length;
   const canFinish = totalSets > 0 && !hasIncompleteSets;
 
-  const [notesByExercise, setNotesByExercise] = useState<Record<string, string>>({});
+  const isTemplatesLoading = !!activeSplit?.id && templatesPending;
+  const isEditLoading = isEditMode && editPending;
 
-  if (splitPending || templatesPending) {
+  if (splitPending || isTemplatesLoading || isEditLoading) {
     return <div className="log-state">Loading workout setup...</div>;
+  }
+
+  if (isEditMode && !workoutToEdit) {
+    return <div className="log-state">Workout not found for editing.</div>;
   }
 
   return (
     <section className="log-page">
       <header className="log-header">
         <div>
-          <h1>Log workout</h1>
-          <p>Track each set and finish with clean session history.</p>
+          <h1>{isEditMode ? 'Edit workout' : 'Log workout'}</h1>
+          <p>{isEditMode ? 'Update your sets and notes, then save changes.' : 'Track each set and finish with clean session history.'}</p>
           {activeSplit && <span className="badge log-header-tag">{activeSplit.name}</span>}
         </div>
       </header>
@@ -118,14 +161,8 @@ export const Log = () => {
             <select
               id="templateSelect"
               value={selectedTemplateId}
-              onChange={(e) => {
-                const templateId = e.target.value;
-                setSelectedTemplateId(templateId);
-                if (templateId) {
-                  createWorkoutMutation.mutate(templateId);
-                }
-              }}
-              disabled={!templates?.length || createWorkoutMutation.isPending}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              disabled={!templates?.length}
             >
               <option value="" disabled>Select a day</option>
               {templates?.map((template) => (
@@ -222,10 +259,10 @@ export const Log = () => {
               <button
                 type="button"
                 className="log-finish-btn"
-                disabled={!canFinish || !workoutId || finishWorkoutMutation.isPending}
+                disabled={!canFinish || finishWorkoutMutation.isPending}
                 onClick={() => finishWorkoutMutation.mutate()}
               >
-                {finishWorkoutMutation.isPending ? 'Finishing...' : 'Finish workout'}
+                {finishWorkoutMutation.isPending ? (isEditMode ? 'Saving...' : 'Finishing...') : (isEditMode ? 'Save workout' : 'Finish workout')}
               </button>
             </section>
           )}

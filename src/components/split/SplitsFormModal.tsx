@@ -11,7 +11,8 @@ interface SplitsFormModalProps {
     existingSplit?: {
         id: string;
         name: string;
-        createdAt: string;
+        createdAt?: string;
+        created_at?: string;
         user_id: string;
     };
 }

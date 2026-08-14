@@ -7,6 +7,14 @@ import { useState } from "react";
 import { SplitsFormModal } from "./SplitsFormModal";
 import { Link } from "react-router-dom";
 
+type SelectedSplit = {
+    id: string;
+    name: string;
+    user_id: string;
+    created_at?: string;
+    createdAt?: string;
+};
+
 export const Splits = () => {
 
     const { user } = useAuthStore();
@@ -24,7 +32,7 @@ export const Splits = () => {
 
     const queryClient = useQueryClient();
 
-    const [selectedSplit, setSelectedSplit] = useState<NonNullable<typeof data>[number] | null>(null);
+    const [selectedSplit, setSelectedSplit] = useState<SelectedSplit | null>(null);
 
     const handleAddSplit = () => {
         setSelectedSplit(null);
@@ -76,22 +84,24 @@ export const Splits = () => {
         return <div className="splits-state splits-state-error">Error: {error.message}</div>;
     }
 
-    const splits = data ?? [];
+    if (!data?.length) {
+        return <div className="splits-state">No splits found.</div>;
+    }
 
     return (
         <div className="splits-page">
             <div className="splits-header">
                 <h1>Splits</h1>
-                <p>{splits.length} splits</p>
+                <p>{data.length} splits</p>
             </div>
 
             {mutationError && <p className="error-text">{mutationError}</p>}
 
-            {!splits.length ? (
+            {!data?.length ? (
                 <div className="splits-state">No splits found.</div>
             ) : (
                 <div className="splits-list">
-                    {splits.map((split) => (
+                    {data.map((split) => (
                         <section className="split-card" key={split.id}>
                             <div className="split-card-head">
                                 <h2>{split.name}</h2>

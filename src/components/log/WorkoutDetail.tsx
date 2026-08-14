@@ -28,10 +28,9 @@ export const WorkoutDetailModal = ({
     };
 
     const noteMap = new Map((workoutDetail?.notes ?? []).map((n) => [n.exercise_id, n.note]));
+    const workoutSets = workoutDetail?.sets ?? [];
 
-    const sets = workoutDetail?.sets ?? [];
-
-    const groupedSets = sets.reduce<Record<string, typeof sets>>((acc, item) => {
+    const groupedSets = workoutSets.reduce<Record<string, typeof workoutSets>>((acc, item) => {
         const key = item.exercise_id;
         if (!acc[key]) {
             acc[key] = [];

@@ -6,7 +6,9 @@ export const fetchActiveSplit = async (userId: string) => {
     .select("*")
     .eq("user_id", userId)
     .eq("is_active", true)
-    .single();
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
   return data;
 };
@@ -82,6 +84,15 @@ export const fetchWorkoutHistory = async (userId: string, limit?: number) => {
   return data;
 };
 
+export const deleteWorkout = async (workoutId: string) => {
+  const { error } = await supabase
+    .from("workouts")
+    .delete()
+    .eq("id", workoutId);
+
+  if (error) throw error;
+};
+
 export const fetchDashboardStats = async (userId: string) => {
   const { count: totalWorkouts, error: totalError } = await supabase
     .from("workouts")
@@ -118,4 +129,77 @@ export const fetchWorkoutDetail = async (workoutId: string) => {
   if (notesError) throw notesError;
 
   return { sets, notes };
+};
+
+export const fetchWorkoutForEdit = async (workoutId: string) => {
+  const { data: workout, error: workoutError } = await supabase
+    .from("workouts")
+    .select("id, template_id")
+    .eq("id", workoutId)
+    .single();
+  if (workoutError) throw workoutError;
+
+  const { sets, notes } = await fetchWorkoutDetail(workoutId);
+  return { ...workout, sets, notes };
+};
+
+type EditableSetEntry = {
+  weight: string;
+  reps: string;
+  isWarmup: boolean;
+};
+
+export const saveWorkoutEdits = async (
+  workoutId: string,
+  templateId: string,
+  setsByExercise: Record<string, EditableSetEntry[]>,
+  notesByExercise: Record<string, string>
+) => {
+  const { error: workoutError } = await supabase
+    .from("workouts")
+    .update({ template_id: templateId })
+    .eq("id", workoutId);
+  if (workoutError) throw workoutError;
+
+  const { error: deleteSetsError } = await supabase
+    .from("sets")
+    .delete()
+    .eq("workout_id", workoutId);
+  if (deleteSetsError) throw deleteSetsError;
+
+  const setRows = Object.entries(setsByExercise).flatMap(([exerciseId, sets]) =>
+    sets.map((set, index) => ({
+      workout_id: workoutId,
+      exercise_id: exerciseId,
+      set_number: index + 1,
+      weight: Number.parseFloat(set.weight),
+      reps: Number.parseInt(set.reps, 10),
+      is_warmup: set.isWarmup,
+    }))
+  );
+
+  if (setRows.length) {
+    const { error: insertSetsError } = await supabase.from("sets").insert(setRows);
+    if (insertSetsError) throw insertSetsError;
+  }
+
+  const { error: deleteNotesError } = await supabase
+    .from("workout_exercise_notes")
+    .delete()
+    .eq("workout_id", workoutId);
+  if (deleteNotesError) throw deleteNotesError;
+
+  const noteRows = Object.entries(notesByExercise)
+    .map(([exerciseId, note]) => ({ exercise_id: exerciseId, note: note.trim() }))
+    .filter((entry) => entry.note.length > 0)
+    .map((entry) => ({
+      workout_id: workoutId,
+      exercise_id: entry.exercise_id,
+      note: entry.note,
+    }));
+
+  if (noteRows.length) {
+    const { error: insertNotesError } = await supabase.from("workout_exercise_notes").insert(noteRows);
+    if (insertNotesError) throw insertNotesError;
+  }
 };

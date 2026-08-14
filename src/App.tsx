@@ -16,6 +16,7 @@ import { Profile } from './Profile.tsx';
 import { LuDumbbell, LuHistory, LuLayoutDashboard, LuNotebookPen, LuPower, LuUserRound } from 'react-icons/lu';
 import { Splits } from './components/split/Splits.tsx';
 import { SplitDetail } from './components/split/SplitDetail.tsx';
+import plateauLogo from './assets/plateau-logo.png';
 
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -23,6 +24,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (loading) return <p>Loading...</p>;
   if (!session) return <Navigate to="/login" replace />;
+
+  return <>{children}</>;
+};
+
+const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, loading } = useAuthStore();
+
+  if (loading) return <p>Loading...</p>;
+  if (session) return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 };
@@ -36,7 +46,7 @@ function App() {
 
   const navigate = useNavigate();
 
-  const getRole = useCallback(async (id?: string) => {
+  const getRole = useCallback(async (id?: string | null) => {
     if (!id) {
       setRole(null);
       return;
@@ -89,7 +99,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <p className="brand">Workout tracker</p>
+        <img src={plateauLogo} alt="Plateau" className="brand-logo" />
         <nav className="topnav" aria-label="Main navigation">
           {!session && (
             <>
@@ -110,9 +120,9 @@ function App() {
     
       <main className="page-content">
         <Routes>
-          <Route path="/login" element={<Login />}></Route>
-          <Route path="/" element={<Home />}></Route>
-          <Route path="/signup" element={<Signup />}></Route>
+          <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>}></Route>
+          <Route path="/" element={<PublicOnlyRoute><Home /></PublicOnlyRoute>}></Route>
+          <Route path="/signup" element={<PublicOnlyRoute><Signup /></PublicOnlyRoute>}></Route>
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}></Route>
           <Route path="/reset-password" element={<ResetPassword />}></Route>
           <Route path="/exercises" element={<ProtectedRoute><Exercises /></ProtectedRoute>}></Route>
@@ -121,7 +131,6 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>}></Route>
           <Route path="/splits" element={<ProtectedRoute><Splits /></ProtectedRoute>}></Route>
           <Route path="/splits/:splitId" element={<ProtectedRoute><SplitDetail /></ProtectedRoute>}></Route>
-          <Route path="/log" element={<ProtectedRoute><Log /></ProtectedRoute>}></Route>
         </Routes>
       </main>
       {session && (

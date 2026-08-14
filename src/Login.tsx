@@ -2,6 +2,7 @@ import { useState, type FormEventHandler, type MouseEvent } from "react";
 import { supabase } from "./lib/supabaseClient";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import plateauText from "./assets/plateau-text.png";
 
 export const Login = () => {
     const [email, setEmail] = useState('');
@@ -54,7 +55,7 @@ export const Login = () => {
     return (
         <section className="login-page">
             <div className="login-card">
-                <p className="login-tag">Workout tracker</p>
+                <img src={plateauText} alt="Plateau" className="plateau-text-mark plateau-text-mark-full" />
                 <h1>Log in</h1>
 
                 <form className="login-form" onSubmit={handleSubmit}>

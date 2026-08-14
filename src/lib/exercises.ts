@@ -37,6 +37,7 @@ export const EXERCISE_CATEGORIES = [
   "Glutes",
   "Calves",
   "Core",
+  "Conditioning"
 ] as const;
 
 export type ExerciseCategory = typeof EXERCISE_CATEGORIES[number];

@@ -1,14 +1,16 @@
-import { LuChevronRight, LuDumbbell, LuHistory, LuLayoutDashboard, LuNotebookPen } from 'react-icons/lu';
+import { LuChevronRight, LuDumbbell, LuHistory, LuLayoutDashboard, LuNotebookPen, LuPencilLine, LuTrash2 } from 'react-icons/lu';
 import { useAuthStore } from './lib/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { fetchActiveSplit, fetchDashboardStats, fetchWorkoutHistory, unwrapExerciseRelation } from './lib/logs';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { deleteWorkout, fetchActiveSplit, fetchDashboardStats, fetchWorkoutHistory, unwrapExerciseRelation } from './lib/logs';
 import { Link } from 'react-router-dom';
 import { WorkoutDetailModal } from './components/log/WorkoutDetail';
 import { useState } from 'react';
+import { NotificationModal } from './shared/NotificationModal';
 
 
 export const Dashboard = () => {
     const { user } = useAuthStore();
+    const queryClient = useQueryClient();
     const { data: history, isPending: historyPending } = useQuery({
         queryKey: ["workoutHistory", user?.id],
         queryFn: () => fetchWorkoutHistory(user!.id, 8),
@@ -29,6 +31,24 @@ export const Dashboard = () => {
 
     const [isWorkoutDetailOpen, setIsWorkoutDetailOpen] = useState(false);
     const [selectedWorkout, setSelectedWorkout] = useState('');
+    const [workoutToDelete, setWorkoutToDelete] = useState<string | null>(null);
+
+    const deleteWorkoutMutation = useMutation({
+        mutationFn: deleteWorkout,
+        onSuccess: async (_, deletedWorkoutId) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['workoutHistory', user?.id] }),
+                queryClient.invalidateQueries({ queryKey: ['dashboardStats', user?.id] }),
+            ]);
+
+            if (selectedWorkout === deletedWorkoutId) {
+                setSelectedWorkout('');
+                setIsWorkoutDetailOpen(false);
+            }
+
+            setWorkoutToDelete(null);
+        },
+    });
     
     if (splitPending || statsPending || historyPending) {
         return <div className="log-state">Loading workout setup...</div>;
@@ -116,14 +136,34 @@ export const Dashboard = () => {
                                     </div>
                                     <div className="dashboard-session-meta">
                                         <span className="row-meta">{formatPerformedAt(item.performed_at)}</span>
-                                        <button
-                                            type="button"
-                                            className="dashboard-open-details-btn"
-                                            onClick={() => HandleWorkoutDetailOpen(item.id)}
-                                        >
-                                            Open details
-                                            <LuChevronRight aria-hidden="true" />
-                                        </button>
+                                        <div className="dashboard-session-actions">
+                                            <Link
+                                                to={`/log?editWorkoutId=${item.id}`}
+                                                className="dashboard-edit-workout-btn"
+                                                aria-label="Edit workout"
+                                            >
+                                                <LuPencilLine aria-hidden="true" />
+                                                Edit
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                className="dashboard-open-details-btn"
+                                                onClick={() => HandleWorkoutDetailOpen(item.id)}
+                                            >
+                                                Open details
+                                                <LuChevronRight aria-hidden="true" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="dashboard-delete-workout-btn"
+                                                onClick={() => setWorkoutToDelete(item.id)}
+                                                aria-label="Delete workout"
+                                                disabled={deleteWorkoutMutation.isPending}
+                                            >
+                                                <LuTrash2 aria-hidden="true" />
+                                                Delete
+                                            </button>
+                                        </div>
                                     </div>
 
                                 </li>
@@ -138,6 +178,23 @@ export const Dashboard = () => {
                     setSelectedWorkout("");
                 }}
                 workoutId={selectedWorkout} />
+            <NotificationModal
+                isOpen={!!workoutToDelete}
+                onClose={() => {
+                    if (!deleteWorkoutMutation.isPending) {
+                        setWorkoutToDelete(null);
+                    }
+                }}
+                title="Delete this workout?"
+                message="This will permanently remove the workout, sets, and notes."
+                action="Delete"
+                confirmLabel={deleteWorkoutMutation.isPending ? 'Deleting…' : 'Delete workout'}
+                onConfirm={() => {
+                    if (workoutToDelete && !deleteWorkoutMutation.isPending) {
+                        deleteWorkoutMutation.mutate(workoutToDelete);
+                    }
+                }}
+            />
         </section>
 
         

@@ -6,6 +6,12 @@ import { ExerciseFormModal } from "./ExerciseFormModal";
 import { NotificationModal } from "../../shared/NotificationModal";
 import { useState } from "react";
 
+type SelectedExercise = {
+    id: string;
+    name: string;
+    category: string | null;
+};
+
 export const Exercises = () => {
     const { data, isPending, isError, error } = useQuery({
         queryKey: ["exercises"],
@@ -21,7 +27,7 @@ export const Exercises = () => {
 
     const queryClient = useQueryClient();
 
-    const [selectedExercise, setSelectedExercise] = useState<NonNullable<typeof data>[number] | null>(null);
+    const [selectedExercise, setSelectedExercise] = useState<SelectedExercise | null>(null);
 
     const handleAddExercise = () => setIsModalOpen(true)
 

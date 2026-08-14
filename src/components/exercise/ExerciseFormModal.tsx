@@ -15,7 +15,7 @@ interface ExerciseFormModalProps {
     existingExercise?: {
         id: string;
         name: string;
-        category: ExerciseCategory;
+        category: ExerciseCategory | string | null;
     };
 }
 
@@ -34,7 +34,7 @@ export const ExerciseFormModal = ({
         if (!isOpen) return;
 
         setName(existingExercise?.name ?? "");
-        setCategory(existingExercise?.category ?? "");
+        setCategory((existingExercise?.category as ExerciseCategory | undefined) ?? "");
         setError("");
     }, [isOpen, existingExercise]);
 
