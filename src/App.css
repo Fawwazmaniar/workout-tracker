@@ -3473,7 +3473,20 @@ main.page-content {
     flex: 1 1 auto;
     min-height: 0;
     box-sizing: border-box;
-    padding: 20px 16px calc(96px + env(safe-area-inset-bottom)) !important;
+    padding: 20px 16px 20px !important;
+}
+
+main.page-content:has(+ .app-footer) {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+/* A higher-specificity ".page-content > :not(.signup-page)" rule earlier in
+   this file was still matching .login-page and forcing a stale min-height
+   calc, overflowing the viewport by ~38px even with the flex fix above. */
+.auth-page,
+.signup-page,
+.login-page {
+    min-height: 100% !important;
 }
 
 .app-footer {
