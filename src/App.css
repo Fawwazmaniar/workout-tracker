@@ -3451,3 +3451,34 @@
         grid-template-columns: 1fr 1fr;
     }
 }
+
+
+/* ===== Fixed footer + no forced page scroll (layout fix) =====
+   .page-content previously combined a min-height:calc(100svh - Npx) with
+   content-box padding, so its rendered height always exceeded the viewport
+   by the padding amount — forcing a scrollbar even on short pages. Making
+   .app-shell a flex column and .page-content a flex:1 child lets it fill
+   exactly the remaining space (padding included) instead of overshooting it. */
+
+.app-shell {
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar {
+    flex: 0 0 auto;
+}
+
+main.page-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 20px 16px calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+.app-footer {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    z-index: 60 !important;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom)) !important;
+}

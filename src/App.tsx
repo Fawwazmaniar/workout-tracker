@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import { supabase } from './lib/supabaseClient'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { Signup } from './Signup';
 import { Login } from './Login';
 import { Dashboard } from './Dashboard';
 import { useAuthStore } from './lib/useAuthStore';
+import { useUnsavedWorkoutStore } from './lib/useUnsavedWorkoutStore';
 import { Home } from './Home';
 import { ResetPassword } from './ResetPassword';
 import { fetchProfile } from './lib/profile';
@@ -17,6 +18,9 @@ import { LuDumbbell, LuHistory, LuLayoutDashboard, LuNotebookPen, LuPower, LuUse
 import { Splits } from './components/split/Splits.tsx';
 import { SplitDetail } from './components/split/SplitDetail.tsx';
 import plateauLogo from './assets/plateau-logo.png';
+import { NotificationModal } from './shared/NotificationModal.tsx';
+
+type PendingNavigation = { type: 'path'; to: string } | { type: 'logout' };
 
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -45,6 +49,9 @@ function App() {
   const { setRole } = useAuthStore();
 
   const navigate = useNavigate();
+  const hasUnsavedProgress = useUnsavedWorkoutStore((state) => state.hasUnsavedProgress);
+  const setHasUnsavedProgress = useUnsavedWorkoutStore((state) => state.setHasUnsavedProgress);
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
 
   const getRole = useCallback(async (id?: string | null) => {
     if (!id) {
@@ -79,13 +86,40 @@ function App() {
     return () => subscription.unsubscribe();
   }, [getRole, setIsPasswordRecovery, setLoading, setSession, setUser]);
 
-  const handleLogout = async () => {
+  const performLogout = async () => {
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.error(e);
     }
     navigate('/');
+  }
+
+  const handleLogout = () => {
+    if (hasUnsavedProgress) {
+      setPendingNavigation({ type: 'logout' });
+      return;
+    }
+    performLogout();
+  }
+
+  const handleNavClick = (e: React.MouseEvent, to: string) => {
+    if (hasUnsavedProgress) {
+      e.preventDefault();
+      setPendingNavigation({ type: 'path', to });
+    }
+  }
+
+  const confirmPendingNavigation = () => {
+    const pending = pendingNavigation;
+    setPendingNavigation(null);
+    setHasUnsavedProgress(false);
+    if (!pending) return;
+    if (pending.type === 'logout') {
+      performLogout();
+    } else {
+      navigate(pending.to);
+    }
   }
 
   const appTabs = [
@@ -140,6 +174,7 @@ function App() {
               <NavLink
                 key={to}
                 to={to}
+                onClick={(e) => handleNavClick(e, to)}
                 className={({ isActive }) => (isActive ? 'footer-link active' : 'footer-link')}
               >
                 <Icon className="footer-icon" aria-hidden="true" />
@@ -149,6 +184,16 @@ function App() {
           </nav>
         </footer>
       )}
+
+      <NotificationModal
+        isOpen={!!pendingNavigation}
+        onClose={() => setPendingNavigation(null)}
+        title="Leave workout in progress?"
+        message="You have an unsaved workout log. If you leave now, your progress won't be saved."
+        action="leave"
+        confirmLabel="Leave"
+        onConfirm={confirmPendingNavigation}
+      />
     </div>
   )
 }

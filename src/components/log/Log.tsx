@@ -5,6 +5,7 @@ import { fetchTemplatesWithExercises } from '../../lib/splits';
 import { useEffect, useState } from 'react';
 import { createSet, createWorkout, fetchActiveSplit, fetchWorkoutForEdit, saveWorkoutEdits, upsertExerciseNote } from '../../lib/logs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUnsavedWorkoutStore } from '../../lib/useUnsavedWorkoutStore';
 
 interface SetEntry {
   weight: string;
@@ -42,6 +43,7 @@ export const Log = () => {
   const [notesByExercise, setNotesByExercise] = useState<Record<string, string>>({});
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [prefilledWorkoutId, setPrefilledWorkoutId] = useState<string | null>(null);
+  const setHasUnsavedProgress = useUnsavedWorkoutStore((state) => state.setHasUnsavedProgress);
 
   useEffect(() => {
     if (!workoutToEdit?.id) return;
@@ -117,6 +119,7 @@ export const Log = () => {
       setNotesByExercise({});
       setSelectedTemplateId("");
       setPrefilledWorkoutId(null);
+      setHasUnsavedProgress(false);
       navigate("/dashboard");
     },
     onError: (error: Error) => {
@@ -130,6 +133,24 @@ export const Log = () => {
 
   const totalSets = Object.values(setsByExercise).flat().length;
   const canFinish = totalSets > 0 && !hasIncompleteSets;
+
+  useEffect(() => {
+    setHasUnsavedProgress(totalSets > 0);
+  }, [totalSets, setHasUnsavedProgress]);
+
+  useEffect(() => {
+    return () => setHasUnsavedProgress(false);
+  }, [setHasUnsavedProgress]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (totalSets === 0) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [totalSets]);
 
   const isTemplatesLoading = !!activeSplit?.id && templatesPending;
   const isEditLoading = isEditMode && editPending;
