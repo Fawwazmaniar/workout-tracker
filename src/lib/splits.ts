@@ -39,6 +39,23 @@ export const updateSplit = async (splitId: string, name: string) => {
   return data;
 };
 
+export const setActiveSplit = async (userId: string, splitId: string) => {
+  const { error: deactivateError } = await supabase
+    .from("training_splits")
+    .update({ is_active: false })
+    .eq("user_id", userId)
+    .neq("id", splitId);
+  if (deactivateError) throw deactivateError;
+
+  const { data, error } = await supabase
+    .from("training_splits")
+    .update({ is_active: true })
+    .eq("id", splitId)
+    .select();
+  if (error) throw error;
+  return data;
+};
+
 export const deleteSplit = async (splitId: string) => {
   const { error } = await supabase
     .from("training_splits")
@@ -86,10 +103,20 @@ export const createTemplate = async (splitId: string, name: string, dayOrder: nu
 };
 
 
-export const addExerciseToTemplate = async (id: string, order: number, templateId: string) => {
+export const addExerciseToTemplate = async (id: string, templateId: string) => {
+  const { data: lastExercise, error: fetchError } = await supabase
+    .from("workout_template_exercises")
+    .select("exercise_order")
+    .eq("template_id", templateId)
+    .order("exercise_order", { ascending: false })
+    .limit(1);
+  if (fetchError) throw fetchError;
+
+  const nextOrder = (lastExercise?.[0]?.exercise_order ?? 0) + 1;
+
   const { data, error } = await supabase
     .from("workout_template_exercises")
-    .insert({ exercise_id: id, exercise_order: order, template_id: templateId })
+    .insert({ exercise_id: id, exercise_order: nextOrder, template_id: templateId })
     .select();
   if (error) throw error;
   return data;
@@ -103,14 +130,33 @@ export const removeExerciseFromTemplate = async (templateExerciseId: string) => 
   if (error) throw error;
 };
 
-export const updateExerciseInTemplate = async (id: string, exerciseId: string,  order: number, templateId: string) => {
+export const updateExerciseInTemplate = async (id: string, exerciseId: string, templateId: string) => {
   const { data, error } = await supabase
     .from("workout_template_exercises")
-    .update({  exercise_id: exerciseId, exercise_order: order, template_id: templateId })
+    .update({ exercise_id: exerciseId, template_id: templateId })
     .eq("id", id)
     .select();
   if (error) throw error;
   return data;
+};
+
+export const swapExerciseOrder = async (
+  firstId: string,
+  firstOrder: number,
+  secondId: string,
+  secondOrder: number
+) => {
+  const { error: firstError } = await supabase
+    .from("workout_template_exercises")
+    .update({ exercise_order: secondOrder })
+    .eq("id", firstId);
+  if (firstError) throw firstError;
+
+  const { error: secondError } = await supabase
+    .from("workout_template_exercises")
+    .update({ exercise_order: firstOrder })
+    .eq("id", secondId);
+  if (secondError) throw secondError;
 };
 
 export const updateTemplate = async (templateId: string, name: string) => {

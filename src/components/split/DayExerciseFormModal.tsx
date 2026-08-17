@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchExercises } from "../../lib/exercises";
+import { EXERCISE_CATEGORIES, fetchExercises, type ExerciseCategory } from "../../lib/exercises";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useState, type FormEventHandler } from "react";
 import { LuX } from "react-icons/lu";
@@ -26,8 +26,8 @@ export const DayExerciseFormModal = ({
     existingExercise,
 }: DayExerciseFormModalProps) => {
 
-    const [order, setOrder] = useState(0);
     const [exerciseId, setExerciseId] = useState('');
+    const [category, setCategory] = useState<ExerciseCategory | "">("");
     const [error, setError] = useState("");
 
     const { data, isPending, isError } = useQuery({
@@ -35,21 +35,34 @@ export const DayExerciseFormModal = ({
         queryFn: fetchExercises,
     });
 
+    const filteredExercises = category
+        ? data?.filter((exercise) => exercise.category === category)
+        : data;
+
     useEffect(() => {
         if (existingExercise) {
-            setOrder(existingExercise.exercise_order);
+            const matchedExercise = data?.find((exercise) => exercise.id === existingExercise.exerciseId);
+            setCategory((matchedExercise?.category as ExerciseCategory | undefined) ?? "");
             setExerciseId(existingExercise.exerciseId);
         } else if (data?.length) {
-            setOrder(0);
+            setCategory("");
             setExerciseId(data[0].id);
         }
     }, [existingExercise, isOpen, data]);
 
+    const handleCategoryChange = (nextCategory: ExerciseCategory | "") => {
+        setCategory(nextCategory);
+        const nextExercises = nextCategory
+            ? data?.filter((exercise) => exercise.category === nextCategory)
+            : data;
+        setExerciseId(nextExercises?.[0]?.id ?? "");
+    };
+
     const queryClient = useQueryClient();
 
     const createMutation = useMutation({
-        mutationFn: ({ id, order, templateId }: { id: string; order: number, templateId: string }) =>
-            addExerciseToTemplate(id, order, templateId),
+        mutationFn: ({ id, templateId }: { id: string; templateId: string }) =>
+            addExerciseToTemplate(id, templateId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["templates", splitId] });
             onClose();
@@ -60,8 +73,8 @@ export const DayExerciseFormModal = ({
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, exerciseId, order, templateId }: { id: string; exerciseId: string, order: number, templateId: string }) =>
-            updateExerciseInTemplate(id, exerciseId, order, templateId),
+        mutationFn: ({ id, exerciseId, templateId }: { id: string; exerciseId: string, templateId: string }) =>
+            updateExerciseInTemplate(id, exerciseId, templateId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["templates", splitId] });
             onClose();
@@ -74,9 +87,8 @@ export const DayExerciseFormModal = ({
 
     const handleSubmit: FormEventHandler<HTMLFormElement> = (e) => {
         e.preventDefault();
-        console.log(exerciseId, order)
-        if (!exerciseId || order == 0) {
-            setError("Exercise and Order is required.");
+        if (!exerciseId) {
+            setError("Exercise is required.");
             return;
         }
 
@@ -85,13 +97,11 @@ export const DayExerciseFormModal = ({
             updateMutation.mutate({
                 id: existingExercise.id,
                 exerciseId: exerciseId,
-                order: order,
                 templateId: templateId
             })
         } else {
             createMutation.mutate({
                 id: exerciseId,
-                order: order,
                 templateId: templateId
             });
         }
@@ -137,6 +147,23 @@ export const DayExerciseFormModal = ({
                     </div>
 
                     <form onSubmit={handleSubmit} className="modal-form">
+                        <label htmlFor="exercise-category">Category</label>
+                        <select
+                            id="exercise-category"
+                            value={category}
+                            onChange={(e) =>
+                                handleCategoryChange(e.target.value as ExerciseCategory | "")
+                            }
+                        >
+                            <option value="">All categories</option>
+
+                            {EXERCISE_CATEGORIES.map((cat) => (
+                                <option key={cat} value={cat}>
+                                    {cat}
+                                </option>
+                            ))}
+                        </select>
+
                         <label htmlFor="exercise-name">Exercise</label>
                         <select
                             id="exercise-name"
@@ -149,21 +176,16 @@ export const DayExerciseFormModal = ({
                                 Select an Exercise
                             </option>
 
-                            {data.map((exercise) => (
+                            {filteredExercises?.map((exercise) => (
                                 <option key={exercise.id} value={exercise.id}>
                                     {exercise.name}
                                 </option>
                             ))}
                         </select>
 
-                        <label htmlFor="exercise-order">Order</label>
-                        <input
-                            id="exercise-order"
-                            type="text"
-                            value={order}
-                            onChange={(e) => setOrder(parseInt(e.target.value))}
-                            placeholder="1"
-                        />
+                        {!filteredExercises?.length && (
+                            <p className="error-text">No exercises in this category.</p>
+                        )}
 
                         {error && <p className="error-text">{error}</p>}
 

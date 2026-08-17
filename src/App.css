@@ -769,6 +769,41 @@
     font-size: 13px;
 }
 
+.splits-active-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.splits-active-select label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.splits-active-select select {
+    flex: 1;
+    max-width: 320px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.splits-active-select select:focus {
+    outline: none;
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 0 3px rgba(76, 122, 146, 0.2);
+}
+
+.splits-active-select select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .splits-list {
     display: grid;
     gap: 8px;
@@ -1198,6 +1233,15 @@
 .split-exercise-action svg {
     width: 15px;
     height: 15px;
+}
+
+.split-exercise-action:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.split-exercise-move:hover:not(:disabled) {
+    color: var(--accent-secondary);
 }
 
 .split-exercise-edit:hover {

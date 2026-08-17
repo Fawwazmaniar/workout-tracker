@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteSplit, fetchSplits } from "../../lib/splits";
+import { deleteSplit, fetchSplits, setActiveSplit } from "../../lib/splits";
+import { fetchActiveSplit } from "../../lib/logs";
 import { useAuthStore } from "../../lib/useAuthStore";
 import { LuChevronRight, LuPencil, LuPlus, LuTrash } from "react-icons/lu";
 import { NotificationModal } from "../../shared/NotificationModal";
@@ -21,6 +22,12 @@ export const Splits = () => {
     const { data, isPending, isError, error } = useQuery({
         queryKey: ["splits", user?.id],
         queryFn: () => fetchSplits(user!.id),
+        enabled: !!user?.id,
+    });
+
+    const { data: activeSplit } = useQuery({
+        queryKey: ["activeSplit", user?.id],
+        queryFn: () => fetchActiveSplit(user!.id),
         enabled: !!user?.id,
     });
 
@@ -76,6 +83,24 @@ export const Splits = () => {
         }
     };
 
+    const activeSplitMutation = useMutation({
+        mutationFn: (splitId: string) => setActiveSplit(user!.id, splitId),
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["activeSplit", user?.id] }),
+                queryClient.invalidateQueries({ queryKey: ["splits", user?.id] }),
+            ]);
+        },
+        onError: (e: Error) => {
+            setMutationError(e.message);
+        },
+    });
+
+    const handleActiveSplitChange = (splitId: string) => {
+        if (!splitId || splitId === activeSplit?.id) return;
+        activeSplitMutation.mutate(splitId);
+    };
+
     if (isPending) {
         return <div className="splits-state">Loading splits...</div>;
     }
@@ -93,6 +118,25 @@ export const Splits = () => {
             <div className="splits-header">
                 <h1>Splits</h1>
                 <p>{data.length} splits</p>
+            </div>
+
+            <div className="splits-active-select">
+                <label htmlFor="active-split">Active split</label>
+                <select
+                    id="active-split"
+                    value={activeSplit?.id ?? ""}
+                    onChange={(e) => handleActiveSplitChange(e.target.value)}
+                    disabled={activeSplitMutation.isPending}
+                >
+                    <option value="" disabled>
+                        Select an active split
+                    </option>
+                    {data.map((split) => (
+                        <option key={split.id} value={split.id}>
+                            {split.name}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             {mutationError && <p className="error-text">{mutationError}</p>}

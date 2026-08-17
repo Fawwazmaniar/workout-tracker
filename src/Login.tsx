@@ -38,7 +38,7 @@ export const Login = () => {
 
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: "http://localhost:5173/reset-password", // or your production URL
+                redirectTo: "https://workout-tracker-zeta-neon.vercel.app/reset-password",
             });
             if (error) {
                 setError(error.message);

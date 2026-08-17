@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { fetchSplitById, fetchTemplatesWithExercises, removeExerciseFromTemplate } from "../../lib/splits";
-import { LuArrowLeft, LuDumbbell, LuLayers, LuPencil, LuPlus, LuTrash } from "react-icons/lu";
+import { fetchSplitById, fetchTemplatesWithExercises, removeExerciseFromTemplate, swapExerciseOrder } from "../../lib/splits";
+import { LuArrowDown, LuArrowLeft, LuArrowUp, LuDumbbell, LuLayers, LuPencil, LuPlus, LuTrash } from "react-icons/lu";
 import { NotificationModal } from "../../shared/NotificationModal";
 import { useState } from "react";
 import { DayExerciseFormModal } from "./DayExerciseFormModal";
@@ -68,6 +68,37 @@ export const SplitDetail = () => {
             deleteMutation.mutate(selectedExerciseId);
             setIsNotificationOpen(false);
         }
+    };
+
+    const moveMutation = useMutation({
+        mutationFn: ({ firstId, firstOrder, secondId, secondOrder }: {
+            firstId: string;
+            firstOrder: number;
+            secondId: string;
+            secondOrder: number;
+        }) => swapExerciseOrder(firstId, firstOrder, secondId, secondOrder),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["templates", splitId] });
+        },
+    });
+
+    const handleMoveExercise = (
+        exercises: { id: string; exercise_order: number }[],
+        index: number,
+        direction: "up" | "down"
+    ) => {
+        const targetIndex = direction === "up" ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= exercises.length) return;
+
+        const current = exercises[index];
+        const target = exercises[targetIndex];
+
+        moveMutation.mutate({
+            firstId: current.id,
+            firstOrder: current.exercise_order,
+            secondId: target.id,
+            secondOrder: target.exercise_order,
+        });
     };
 
     const handleOnAddEditExercise = (templateId: string, exercise: EditableTemplateExercise | null = null) => {
@@ -167,6 +198,24 @@ export const SplitDetail = () => {
                                                         {exercise?.name ?? "Unnamed exercise"}
                                                     </span>
                                                     <span className="split-exercise-actions">
+                                                        <button
+                                                            className="split-exercise-action split-exercise-move"
+                                                            type="button"
+                                                            onClick={() => handleMoveExercise(exercises, exerciseIndex, "up")}
+                                                            disabled={exerciseIndex === 0}
+                                                            aria-label={`Move ${exercise?.name ?? "exercise"} up`}
+                                                        >
+                                                            <LuArrowUp aria-hidden="true" />
+                                                        </button>
+                                                        <button
+                                                            className="split-exercise-action split-exercise-move"
+                                                            type="button"
+                                                            onClick={() => handleMoveExercise(exercises, exerciseIndex, "down")}
+                                                            disabled={exerciseIndex === exercises.length - 1}
+                                                            aria-label={`Move ${exercise?.name ?? "exercise"} down`}
+                                                        >
+                                                            <LuArrowDown aria-hidden="true" />
+                                                        </button>
                                                         <button
                                                             className="split-exercise-action split-exercise-edit"
                                                             type="button"
