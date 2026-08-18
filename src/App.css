@@ -2902,7 +2902,7 @@
 
 .log-set-row {
     display: grid;
-    grid-template-columns: 64px minmax(120px, 1fr) minmax(120px, 1fr) max-content;
+    grid-template-columns: 64px minmax(120px, 1fr) minmax(120px, 1fr) max-content max-content;
     align-items: center;
     gap: 10px;
 }
@@ -2940,6 +2940,29 @@
 
 .log-warmup-toggle input {
     margin: 0;
+}
+
+.log-delete-set {
+    width: 32px;
+    height: 32px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.log-delete-set:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.log-delete-set svg {
+    width: 14px;
+    height: 14px;
 }
 
 .log-add-set,
@@ -3054,6 +3077,10 @@
     }
     .log-warmup-toggle {
         grid-column: 1 / -1;
+    }
+    .log-delete-set {
+        grid-column: 1 / -1;
+        justify-self: end;
     }
 }
 

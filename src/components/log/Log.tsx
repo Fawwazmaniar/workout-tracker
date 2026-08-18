@@ -1,4 +1,4 @@
-import { LuDumbbell, LuPlus } from 'react-icons/lu';
+import { LuDumbbell, LuPlus, LuTrash } from 'react-icons/lu';
 import { useAuthStore } from '../../lib/useAuthStore';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { fetchTemplatesWithExercises } from '../../lib/splits';
@@ -89,6 +89,13 @@ export const Log = () => {
     setSetsByExercise((prev) => ({
       ...prev,
       [exerciseId]: [...(prev[exerciseId] ?? []), { weight: "", reps: "", isWarmup: false }],
+    }));
+  };
+
+  const handleDeleteSet = (exerciseId: string, index: number) => {
+    setSetsByExercise((prev) => ({
+      ...prev,
+      [exerciseId]: (prev[exerciseId] ?? []).filter((_, i) => i !== index),
     }));
   };
 
@@ -248,6 +255,14 @@ export const Log = () => {
                             />
                             Warm-up
                           </label>
+                          <button
+                            type="button"
+                            className="log-delete-set"
+                            onClick={() => handleDeleteSet(exerciseId, index)}
+                            aria-label={`Delete set ${index + 1}`}
+                          >
+                            <LuTrash aria-hidden="true" />
+                          </button>
                         </div>
                       ))}
 
