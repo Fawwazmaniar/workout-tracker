@@ -1,53 +1,82 @@
 # Plateau
 
-A personal workout-tracking app: build a custom training split, log every set, and review your training history — built as a real, daily-use tool rather than a portfolio-only exercise.
+[![CI](https://github.com/Fawwazmaniar/workout-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Fawwazmaniar/workout-tracker/actions/workflows/ci.yml)
 
-## Tech Stack
+Plateau is a workout tracker. You build a custom training split, log sets during a session, and look back over past sessions. It is a React single-page app talking directly to Supabase (Postgres, Auth and Row Level Security), with no server of its own.
 
-- **Vite** — build tool / dev server
-- **React + TypeScript**
-- **React Router v6** — client-side routing
-- **Zustand** — client/UI state (auth session, current form selections)
-- **TanStack React Query** — server state, caching, mutations
-- **Supabase** — Postgres database, Auth, and Row Level Security
-- **Radix UI** — accessible, unstyled dialog primitives for all modals
+Live: https://workout-tracker-zeta-neon.vercel.app
 
-## Architecture Decisions
+## Features
 
-### Backend: Supabase over a custom API
+- **Auth**: sign up, log in, log out, password reset and change password (Supabase Auth). App pages are behind a route guard.
+- **Training split builder**: create, rename and delete splits; add training days to a split; add, swap and remove exercises on a day; choose one split as the active one.
+- **Exercise library**: a shared list of exercises grouped by category. Anyone signed in can browse it; the add/edit/delete controls only show for users whose profile role is `admin`.
+- **Set logging**: pick a day from the active split, add sets with weight and reps, flag warm-up sets, and write a note per exercise. Nothing is saved until you tap **Finish workout**; leaving mid-workout asks for confirmation.
+- **Session history**: the dashboard shows total workouts, workouts in the last 7 days and the 8 most recent sessions. Each session can be opened for details, edited, or deleted.
 
-Supabase gives a real Postgres database, authentication, and an auto-generated API layer without hand-building a backend server. Since there's no server sitting between the frontend and the database, **Row Level Security (RLS) does the job a backend would normally do**: every table that holds user data has RLS enabled, and policies enforce ownership at the database level rather than trusting the frontend to filter correctly. The frontend's Supabase key (`publishable` key) is safe to expose publicly — it grants nothing on its own; the policies are what actually protect the data.
+## Stack
 
-### Data model
+From `package.json`:
 
-- **`profiles`** — extends `auth.users` with an app-specific `role` (`user` | `admin`). A Postgres trigger (`handle_new_user`) automatically creates a `profiles` row whenever someone signs up, so there's never a window where a user exists without a role.
-- **`exercises`** — an admin-managed, shared library. Every user can read it; only admins can write to it, enforced by an RLS policy that looks up the requesting user's `role` via a subquery into `profiles`.
-- **`training_splits` → `workout_templates` → `workout_template_exercises`** — a user's training program. A split has templates (training days, e.g. "Upper A"); each template has exercises via a junction table, since a day has many exercises and an exercise can appear on many days (a genuine many-to-many relationship). Splits can optionally use `training_split_weeks` to group templates into weeks — a split picks one style (flat days, or days grouped into weeks) at creation time rather than supporting a mixed structure, keeping the UI logic simple.
-- **`workouts` → `sets`** — actual logged sessions. A `workout` references which `workout_template` it was based on; `sets` reference the workout and the specific exercise directly (not through the template), so editing a template later never rewrites history — a workout's logged sets always reflect exactly what was actually done, independent of any later changes to the plan.
-- **`workout_exercise_notes`** — one optional note per exercise per workout session, enforced via a `unique(workout_id, exercise_id)` constraint rather than left to application-level convention.
+- Vite 8, React 19, TypeScript 6
+- React Router (`react-router-dom` 7)
+- Zustand 5 for app-controlled state
+- TanStack React Query 5 for server state
+- Supabase (`@supabase/supabase-js`): Postgres, Auth, Row Level Security
+- Radix UI Dialog for modals
+- ESLint with `typescript-eslint` and the React Hooks rules
+- Vitest, React Testing Library, user-event and jsdom for tests
 
-Every table follows the same RLS pattern: ownership is checked either directly (`user_id = auth.uid()`) or, for tables nested deeper in the hierarchy, via an `exists (...)` subquery joining back up to the owning row — sometimes through two levels (e.g. `workout_template_exercises` → `workout_templates` → `training_splits`).
+## Architecture
 
-### State split: Zustand vs. React Query
+- **Server state vs app state.** Anything that comes from the database (splits, days, exercises, history, dashboard stats) lives in React Query. Zustand holds state the app controls itself: the auth session and role (`useAuthStore`) and whether there is an unsaved workout (`useUnsavedWorkoutStore`). The sets being logged live in the `Log` component's local state, and the pure update and payload-building logic is in `src/lib/workoutLog.ts`.
+- **Data access.** All Supabase calls are in `src/lib/*.ts`. Components never call Supabase directly.
+- **Ownership is enforced in the database.** With no backend between the browser and Postgres, Row Level Security does that job. The client only uses the project URL and a publishable key. The intended policies are documented in [`supabase/policies.sql`](supabase/policies.sql), which is a reference copy to check against the live project, not something the app applies.
+- **Save on Finish, in one transaction.** Selecting a day and entering sets only changes local state. Tapping Finish makes a single `supabase.rpc('finish_workout', { payload })` call. The Postgres function in [`supabase/functions.sql`](supabase/functions.sql) inserts the workout, its sets and its notes in one transaction, using `auth.uid()` for ownership, so a failure rolls everything back. Editing an existing workout (`saveWorkoutEdits`) still uses several separate calls and is not atomic.
+- **Lazy routes and error handling.** Route pages are code-split with `React.lazy`. A top-level error boundary shows a text fallback, and the dashboard, log and split screens show an error message when their queries fail.
 
-The same rule applied throughout: **Zustand owns state the app itself controls** (the authenticated session, current role, in-progress form selections); **React Query owns anything that originates from the server** (exercises, splits, workout history, dashboard stats). Mixing the two — e.g. copying fetched data into local `useState` — was a recurring bug pattern caught during development (stale data that no longer reflects the server after a mutation) and consistently fixed by reading directly from the query/store instead of shadowing it.
+## Running locally
 
-### Workout logging: nothing persists until "Finish"
+```bash
+git clone https://github.com/Fawwazmaniar/workout-tracker.git
+cd workout-tracker
+npm ci
+cp .env.example .env   # then fill in your Supabase URL and publishable key
+npm run dev
+```
 
-Early versions created a `workouts` row the moment a training day was selected, which left empty, abandoned sessions in the database if a user picked a day and never logged anything. The logging flow was restructured so that **selecting a day only sets local component state** — the actual `workouts` row, its `sets`, and any exercise notes are all created together inside a single mutation triggered by "Finish workout." This trades a small risk (a partial save if one insert in the batch fails, since it isn't wrapped in a database transaction) for a simpler mental model and no orphaned rows on the happy path.
+You need a Supabase project with the tables described in `supabase/policies.sql`, and `supabase/functions.sql` applied (Supabase dashboard, SQL Editor) before **Finish workout** will work.
 
-### A recurring Supabase gotcha worth documenting
+Other scripts: `npm run lint`, `npm run typecheck`, `npm run test:run`, `npm run build`.
 
-Any Supabase call that chains `.select()` after an `insert`/`update` — which most of this project's write functions do, in order to return the created/updated row — requires **both** the operation-specific RLS policy (e.g. `insert`) **and** a `select` policy on that table. Without the `select` policy, the write succeeds but the subsequent read-back fails as an RLS violation, surfacing as a confusing "new row violates row-level security policy" error even when the `insert` policy itself is completely correct. This was hit and diagnosed multiple times during development (`exercises`, then `sets`) before becoming a checklist item for every new table.
+## Testing
 
-### Deployment
+```bash
+npm run test:run   # single run
+npm test           # watch mode
+```
 
-Hosted on Vercel with GitHub's Git integration for automatic deploys on push to `main`. Two Vercel-specific fixes were needed beyond a standard Vite deploy:
-- **A `vercel.json` rewrite rule** (`"/(.*)" → "/index.html"`) so client-side routes (e.g. `/dashboard`, `/splits/:id`) don't 404 on direct navigation or refresh — Vercel's static file server has no knowledge of React Router's client-side routes without this.
-- **Environment variables** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) configured directly in Vercel's project settings, since this app — unlike a purely client-side demo — depends on real credentials at build time.
+Tests use Vitest and React Testing Library. `src/test/setup.ts` replaces the Supabase client with a mock for every test file, so tests never reach a real project. They cover:
 
-## Known Trade-offs / Possible Follow-ups
+- the set-logging helpers (add, edit, delete, validation, payload building) and the date formatter
+- the Zustand stores
+- the route guards (unauthenticated users are redirected)
+- the Log screen: entering weight and reps, warm-up flag and notes; nothing saved before Finish; one save call with the full payload on Finish; load-error state
+- the `finishWorkout` RPC call
+- the dashboard session list, its empty state and its error state
+- the splits list and creating a split
+- the error boundary
 
-- Multi-step writes (e.g. finishing a workout, which inserts a workout row plus many sets and notes) aren't wrapped in a database transaction, so a failure partway through could leave a partial save. Acceptable for a personal-use tool; would need a Postgres function/transaction for stronger guarantees.
-- Reordering (of days within a split, or exercises within a day) was deliberately deferred — `day_order`/`exercise_order` exist in the schema, but no drag-and-drop or up/down UI was built, since reordering a training plan is a rare action compared to creating and logging against it.
-- Currently a PWA (installable, home-screen icon) rather than a native app. The data and business logic layers are UI-framework-agnostic and would carry over to a React Native rewrite; only the component/styling layer would need to be rebuilt.
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and build on every push and pull request to `main`, using dummy Supabase values.
+
+## Deployment
+
+Hosted on Vercel. `vercel.json` rewrites every path to `/index.html` so client-side routes such as `/dashboard` work on refresh. `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set in the Vercel project settings.
+
+## Trade-offs / Next steps
+
+- Editing a saved workout is not atomic (see Architecture).
+- Exercises within a day can be moved up and down, but there is no drag and drop, and days within a split cannot be reordered.
+- The app is a web app, not a native one.
+- Progress charts and personal records are planned, not built.
+- `src/History.tsx` is a static placeholder page behind the `/history` route that nothing links to. Real history is on the dashboard.
