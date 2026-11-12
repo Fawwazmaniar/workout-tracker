@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EXERCISE_CATEGORIES, fetchExercises, type ExerciseCategory } from "../../lib/exercises";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useState, type FormEventHandler } from "react";
+import { useState, type FormEventHandler } from "react";
 import { LuX } from "react-icons/lu";
 import { addExerciseToTemplate, updateExerciseInTemplate } from "../../lib/splits";
 
@@ -39,7 +39,15 @@ export const DayExerciseFormModal = ({
         ? data?.filter((exercise) => exercise.category === category)
         : data;
 
-    useEffect(() => {
+    // Re-seed the form when the modal opens, the edited exercise changes, or exercises load.
+    // Adjusting state during render avoids a setState-in-effect cascade.
+    const [syncedFor, setSyncedFor] = useState<{
+        isOpen: boolean;
+        exercise: typeof existingExercise;
+        data: typeof data;
+    } | null>(null);
+    if (!syncedFor || syncedFor.isOpen !== isOpen || syncedFor.exercise !== existingExercise || syncedFor.data !== data) {
+        setSyncedFor({ isOpen, exercise: existingExercise, data });
         if (existingExercise) {
             const matchedExercise = data?.find((exercise) => exercise.id === existingExercise.exerciseId);
             setCategory((matchedExercise?.category as ExerciseCategory | undefined) ?? "");
@@ -48,7 +56,7 @@ export const DayExerciseFormModal = ({
             setCategory("");
             setExerciseId(data[0].id);
         }
-    }, [existingExercise, isOpen, data]);
+    }
 
     const handleCategoryChange = (nextCategory: ExerciseCategory | "") => {
         setCategory(nextCategory);

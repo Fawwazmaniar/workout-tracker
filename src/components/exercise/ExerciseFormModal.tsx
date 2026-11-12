@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, type FormEventHandler } from "react";
+import { useState, type FormEventHandler } from "react";
 import {
     createExercise,
     EXERCISE_CATEGORIES,
@@ -30,13 +30,17 @@ export const ExerciseFormModal = ({
 
     const queryClient = useQueryClient();
 
-    useEffect(() => {
-        if (!isOpen) return;
-
-        setName(existingExercise?.name ?? "");
-        setCategory((existingExercise?.category as ExerciseCategory | undefined) ?? "");
-        setError("");
-    }, [isOpen, existingExercise]);
+    // Reset the form whenever the modal opens or the exercise being edited changes.
+    // Adjusting state during render avoids a setState-in-effect cascade.
+    const [syncedFor, setSyncedFor] = useState<{ isOpen: boolean; exercise: typeof existingExercise } | null>(null);
+    if (!syncedFor || syncedFor.isOpen !== isOpen || syncedFor.exercise !== existingExercise) {
+        setSyncedFor({ isOpen, exercise: existingExercise });
+        if (isOpen) {
+            setName(existingExercise?.name ?? "");
+            setCategory((existingExercise?.category as ExerciseCategory | undefined) ?? "");
+            setError("");
+        }
+    }
 
     const createMutation = useMutation({
         mutationFn: ({ name, category }: { name: string; category: ExerciseCategory }) =>
