@@ -3,15 +3,20 @@ import { useAuthStore } from '../../lib/useAuthStore';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { fetchTemplatesWithExercises } from '../../lib/splits';
 import { useEffect, useState } from 'react';
-import { createSet, createWorkout, fetchActiveSplit, fetchWorkoutForEdit, saveWorkoutEdits, upsertExerciseNote } from '../../lib/logs';
+import { fetchActiveSplit, fetchWorkoutForEdit, finishWorkout, saveWorkoutEdits } from '../../lib/logs';
+import {
+  addSet,
+  buildFinishPayload,
+  canFinishWorkout,
+  countSets,
+  deleteSet,
+  updateSet,
+  type SetEntry,
+  type SetsByExercise,
+  type NotesByExercise,
+} from '../../lib/workoutLog';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUnsavedWorkoutStore } from '../../lib/useUnsavedWorkoutStore';
-
-interface SetEntry {
-  weight: string;
-  reps: string;
-  isWarmup: boolean;
-}
 
 export const Log = () => {
 
@@ -21,13 +26,13 @@ export const Log = () => {
   const editWorkoutId = searchParams.get('editWorkoutId')?.trim() || null;
   const isEditMode = !!editWorkoutId;
 
-  const { data: activeSplit, isPending: splitPending } = useQuery({
+  const { data: activeSplit, isPending: splitPending, isError: splitError } = useQuery({
     queryKey: ["activeSplit", user?.id],
     queryFn: () => fetchActiveSplit(user!.id),
     enabled: !!user?.id,
   });
 
-  const { data: templates, isPending: templatesPending } = useQuery({
+  const { data: templates, isPending: templatesPending, isError: templatesError } = useQuery({
     queryKey: ["templates", activeSplit?.id],
     queryFn: () => fetchTemplatesWithExercises(activeSplit!.id),
     enabled: !!activeSplit?.id,
@@ -39,8 +44,8 @@ export const Log = () => {
     enabled: !!editWorkoutId,
   });
 
-  const [setsByExercise, setSetsByExercise] = useState<Record<string, SetEntry[]>>({});
-  const [notesByExercise, setNotesByExercise] = useState<Record<string, string>>({});
+  const [setsByExercise, setSetsByExercise] = useState<SetsByExercise>({});
+  const [notesByExercise, setNotesByExercise] = useState<NotesByExercise>({});
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [prefilledWorkoutId, setPrefilledWorkoutId] = useState<string | null>(null);
   const setHasUnsavedProgress = useUnsavedWorkoutStore((state) => state.setHasUnsavedProgress);
@@ -78,25 +83,15 @@ export const Log = () => {
   }, [workoutToEdit, prefilledWorkoutId]);
 
   const handleSetChange = (exerciseId: string, index: number, field: keyof SetEntry, value: string | boolean) => {
-    setSetsByExercise((prev) => {
-      const updated = [...(prev[exerciseId] ?? [])];
-      updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, [exerciseId]: updated };
-    });
+    setSetsByExercise((prev) => updateSet(prev, exerciseId, index, field, value));
   };
 
   const handleAddSet = (exerciseId: string) => {
-    setSetsByExercise((prev) => ({
-      ...prev,
-      [exerciseId]: [...(prev[exerciseId] ?? []), { weight: "", reps: "", isWarmup: false }],
-    }));
+    setSetsByExercise((prev) => addSet(prev, exerciseId));
   };
 
   const handleDeleteSet = (exerciseId: string, index: number) => {
-    setSetsByExercise((prev) => ({
-      ...prev,
-      [exerciseId]: (prev[exerciseId] ?? []).filter((_, i) => i !== index),
-    }));
+    setSetsByExercise((prev) => deleteSet(prev, exerciseId, index));
   };
 
   const selectedTemplate = templates?.find((t) => t.id === selectedTemplateId);
@@ -107,19 +102,7 @@ export const Log = () => {
         return saveWorkoutEdits(editWorkoutId, selectedTemplateId, setsByExercise, notesByExercise);
       }
 
-      const workout = await createWorkout(user!.id, selectedTemplateId);
-
-      const allSetInserts = Object.entries(setsByExercise).flatMap(([exerciseId, sets]) =>
-        sets.map((set, index) =>
-          createSet(workout.id, exerciseId, index + 1, parseFloat(set.weight), parseInt(set.reps), set.isWarmup)
-        )
-      );
-
-      const allNoteInserts = Object.entries(notesByExercise)
-        .filter(([, note]) => note.trim().length > 0)
-        .map(([exerciseId, note]) => upsertExerciseNote(workout.id, exerciseId, note.trim()));
-
-      return Promise.all([...allSetInserts, ...allNoteInserts]);
+      return finishWorkout(buildFinishPayload(selectedTemplateId, setsByExercise, notesByExercise));
     },
     onSuccess: () => {
       setSetsByExercise({});
@@ -134,12 +117,8 @@ export const Log = () => {
     },
   });
 
-  const hasIncompleteSets = Object.values(setsByExercise)
-    .flat()
-    .some((set) => !set.weight || !set.reps);
-
-  const totalSets = Object.values(setsByExercise).flat().length;
-  const canFinish = totalSets > 0 && !hasIncompleteSets;
+  const totalSets = countSets(setsByExercise);
+  const canFinish = canFinishWorkout(setsByExercise);
 
   useEffect(() => {
     setHasUnsavedProgress(totalSets > 0);
@@ -166,6 +145,10 @@ export const Log = () => {
     return <div className="log-state">Loading workout setup...</div>;
   }
 
+  if (splitError || templatesError) {
+    return <div className="log-state" role="alert">Could not load your training split. Please try again.</div>;
+  }
+
   if (isEditMode && !workoutToEdit) {
     return <div className="log-state">Workout not found for editing.</div>;
   }
@@ -179,6 +162,10 @@ export const Log = () => {
           {activeSplit && <span className="badge log-header-tag">{activeSplit.name}</span>}
         </div>
       </header>
+
+      {finishWorkoutMutation.isError && (
+        <div className="log-state" role="alert">Could not save your workout. Please try again.</div>
+      )}
 
       {!activeSplit ? (
         <div className="log-state">No active split found. Set one up from Splits first.</div>
@@ -237,12 +224,14 @@ export const Log = () => {
                           <span className="log-set-number">Set {index + 1}</span>
                           <input
                             type="number"
+                            aria-label={`${exercise?.name} set ${index + 1} weight`}
                             placeholder="Weight"
                             value={set.weight}
                             onChange={(e) => handleSetChange(exerciseId, index, "weight", e.target.value)}
                           />
                           <input
                             type="number"
+                            aria-label={`${exercise?.name} set ${index + 1} reps`}
                             placeholder="Reps"
                             value={set.reps}
                             onChange={(e) => handleSetChange(exerciseId, index, "reps", e.target.value)}

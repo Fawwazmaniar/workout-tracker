@@ -24,13 +24,13 @@ export const SplitDetail = () => {
 
     const { splitId } = useParams();
 
-    const { data: split, isPending: splitPending } = useQuery({
+    const { data: split, isPending: splitPending, isError: splitError } = useQuery({
         queryKey: ["split", splitId],
         queryFn: () => fetchSplitById(splitId!),
         enabled: !!splitId,
     });
 
-    const { data: templates, isPending: templatesPending } = useQuery({
+    const { data: templates, isPending: templatesPending, isError: templatesError } = useQuery({
         queryKey: ["templates", splitId],
         queryFn: () => fetchTemplatesWithExercises(splitId!),
         enabled: !!splitId,
@@ -116,6 +116,10 @@ export const SplitDetail = () => {
         setSelectedTemplate(template);
         setIsDayModalOpen(true);
     };
+
+    if (splitError || templatesError) {
+        return <div className="split-detail-state" role="alert">Could not load this split. Please try again.</div>;
+    }
 
     if (splitPending || templatesPending) {
         return <div className="split-detail-state">Loading split...</div>;

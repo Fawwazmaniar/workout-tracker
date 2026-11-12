@@ -1,45 +1,30 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import './App.css'
 import { supabase } from './lib/supabaseClient'
-import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
-import { Signup } from './Signup';
-import { Login } from './Login';
-import { Dashboard } from './Dashboard';
+import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './lib/useAuthStore';
+import { ProtectedRoute, PublicOnlyRoute } from './routeGuards';
 import { useUnsavedWorkoutStore } from './lib/useUnsavedWorkoutStore';
-import { Home } from './Home';
-import { ResetPassword } from './ResetPassword';
 import { fetchProfile } from './lib/profile';
-import { Exercises } from './components/exercise/Exercises.tsx';
-import { Log } from './components/log/Log.tsx';
-import { History } from './History.tsx';
-import { Profile } from './Profile.tsx';
 import { LuDumbbell, LuHistory, LuLayoutDashboard, LuNotebookPen, LuPower, LuUserRound } from 'react-icons/lu';
-import { Splits } from './components/split/Splits.tsx';
-import { SplitDetail } from './components/split/SplitDetail.tsx';
 import plateauLogo from './assets/plateau-logo.png';
 import { NotificationModal } from './shared/NotificationModal.tsx';
 
+// Route-level pages are code-split; each module exposes a named export.
+const Signup = lazy(() => import('./Signup').then((m) => ({ default: m.Signup })));
+const Login = lazy(() => import('./Login').then((m) => ({ default: m.Login })));
+const Dashboard = lazy(() => import('./Dashboard').then((m) => ({ default: m.Dashboard })));
+const Home = lazy(() => import('./Home').then((m) => ({ default: m.Home })));
+const ResetPassword = lazy(() => import('./ResetPassword').then((m) => ({ default: m.ResetPassword })));
+const Exercises = lazy(() => import('./components/exercise/Exercises.tsx').then((m) => ({ default: m.Exercises })));
+const Log = lazy(() => import('./components/log/Log.tsx').then((m) => ({ default: m.Log })));
+const History = lazy(() => import('./History.tsx').then((m) => ({ default: m.History })));
+const Profile = lazy(() => import('./Profile.tsx').then((m) => ({ default: m.Profile })));
+const Splits = lazy(() => import('./components/split/Splits.tsx').then((m) => ({ default: m.Splits })));
+const SplitDetail = lazy(() => import('./components/split/SplitDetail.tsx').then((m) => ({ default: m.SplitDetail })));
+
 type PendingNavigation = { type: 'path'; to: string } | { type: 'logout' };
 
-
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuthStore();
-
-  if (loading) return <p>Loading...</p>;
-  if (!session) return <Navigate to="/login" replace />;
-
-  return <>{children}</>;
-};
-
-const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuthStore();
-
-  if (loading) return <p>Loading...</p>;
-  if (session) return <Navigate to="/dashboard" replace />;
-
-  return <>{children}</>;
-};
 
 function App() {
   const { session, setSession } = useAuthStore();
@@ -153,6 +138,7 @@ function App() {
       </header>
     
       <main className="page-content">
+        <Suspense fallback={<p>Loading...</p>}>
         <Routes>
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>}></Route>
           <Route path="/" element={<PublicOnlyRoute><Home /></PublicOnlyRoute>}></Route>
@@ -166,6 +152,7 @@ function App() {
           <Route path="/splits" element={<ProtectedRoute><Splits /></ProtectedRoute>}></Route>
           <Route path="/splits/:splitId" element={<ProtectedRoute><SplitDetail /></ProtectedRoute>}></Route>
         </Routes>
+        </Suspense>
       </main>
       {session && (
         <footer className="app-footer">

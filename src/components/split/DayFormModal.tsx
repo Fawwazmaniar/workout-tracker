@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useState, type FormEventHandler } from "react";
+import { useState, type FormEventHandler } from "react";
 import { LuX } from "react-icons/lu";
 import { createTemplate, updateTemplate } from "../../lib/splits";
 
@@ -28,13 +28,13 @@ export const DayFormModal = ({
 
     const queryClient = useQueryClient();
 
-    useEffect(() => {
-        if (existingTemplate) {
-            setName(existingTemplate.name);
-        } else {
-            setName("");
-        }
-    }, [existingTemplate, isOpen]);
+    // Reset the name whenever the modal opens or the template being edited changes.
+    // Adjusting state during render avoids a setState-in-effect cascade.
+    const [syncedFor, setSyncedFor] = useState<{ isOpen: boolean; template: typeof existingTemplate } | null>(null);
+    if (!syncedFor || syncedFor.isOpen !== isOpen || syncedFor.template !== existingTemplate) {
+        setSyncedFor({ isOpen, template: existingTemplate });
+        setName(existingTemplate?.name ?? "");
+    }
 
     const createMutation = useMutation({
         mutationFn: ({ splitId, name, dayOrder }: { splitId: string; name: string; dayOrder: number }) =>

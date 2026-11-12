@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient"
+import type { FinishWorkoutPayload } from "./workoutLog"
 
 export const fetchActiveSplit = async (userId: string) => {
   const { data, error } = await supabase
@@ -13,55 +14,17 @@ export const fetchActiveSplit = async (userId: string) => {
   return data;
 };
 
-export const createWorkout = async (userId: string, templateId: string) => {
-  const { data, error } = await supabase
-    .from("workouts")
-    .insert({
-      user_id: userId,
-      template_id: templateId,
-      performed_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
+// Creates the workout, its sets and its notes in one database transaction.
+// The SQL lives in supabase/functions.sql and must be applied to the project.
+export const finishWorkout = async (payload: FinishWorkoutPayload): Promise<string> => {
+  const { data, error } = await supabase.rpc("finish_workout", { payload });
   if (error) throw error;
-  return data;
-};
-
-export const createSet = async (
-  workoutId: string,
-  exerciseId: string,
-  setNumber: number,
-  weight: number,
-  reps: number,
-  isWarmup: boolean
-) => {
-  const { data, error } = await supabase
-    .from("sets")
-    .insert({
-      workout_id: workoutId,
-      exercise_id: exerciseId,
-      set_number: setNumber,
-      weight,
-      reps,
-      is_warmup: isWarmup,
-    })
-    .select();
-  if (error) throw error;
-  return data;
+  return data as string;
 };
 
 export const unwrapExerciseRelation = (relation: unknown) => {
   const value = relation as { id?: string; name?: string } | Array<{ id?: string; name?: string }> | null;
   return Array.isArray(value) ? value[0] : value;
-};
-
-export const upsertExerciseNote = async (workoutId: string, exerciseId: string, note: string) => {
-  const { data, error } = await supabase
-    .from("workout_exercise_notes")
-    .upsert({ workout_id: workoutId, exercise_id: exerciseId, note }, { onConflict: "workout_id,exercise_id" })
-    .select();
-  if (error) throw error;
-  return data;
 };
 
 export const fetchWorkoutHistory = async (userId: string, limit?: number) => {
