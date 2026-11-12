@@ -6,18 +6,19 @@ import { Link } from 'react-router-dom';
 import { WorkoutDetailModal } from './components/log/WorkoutDetail';
 import { useState } from 'react';
 import { NotificationModal } from './shared/NotificationModal';
+import { formatPerformedAt } from './lib/format';
 
 
 export const Dashboard = () => {
     const { user } = useAuthStore();
     const queryClient = useQueryClient();
-    const { data: history, isPending: historyPending } = useQuery({
+    const { data: history, isPending: historyPending, isError: historyError } = useQuery({
         queryKey: ["workoutHistory", user?.id],
         queryFn: () => fetchWorkoutHistory(user!.id, 8),
         enabled: !!user?.id,
     });
 
-    const { data: stats, isPending: statsPending } = useQuery({
+    const { data: stats, isPending: statsPending, isError: statsError } = useQuery({
         queryKey: ["dashboardStats", user?.id],
         queryFn: () => fetchDashboardStats(user!.id),
         enabled: !!user?.id,
@@ -50,22 +51,13 @@ export const Dashboard = () => {
         },
     });
     
+    if (historyError || statsError) {
+        return <div className="log-state" role="alert">Could not load your dashboard. Please try again.</div>;
+    }
+
     if (splitPending || statsPending || historyPending) {
         return <div className="log-state">Loading workout setup...</div>;
     }
-
-    const formatPerformedAt = (value: string) => {
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return value;
-        return new Intl.DateTimeFormat('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-        }).format(date);
-    };
 
     const HandleWorkoutDetailOpen = (workoutId: string): void => {
         if(!workoutId) return;
